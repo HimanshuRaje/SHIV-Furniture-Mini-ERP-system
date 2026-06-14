@@ -14,6 +14,8 @@ const pageTitles = {
   '/manufacturing': 'Manufacturing Orders',
   '/inventory': 'Inventory',
   '/vendors': 'Vendors',
+  '/vendor-history': 'Vendor History',
+  '/purchase-inventory': 'Inventory',
   '/audit-logs': 'Audit Logs',
 };
 
@@ -24,6 +26,7 @@ const roleBadgeColors = {
   PURCHASE_USER: 'bg-amber-100 text-amber-700',
   MANUFACTURING_USER: 'bg-indigo-100 text-indigo-700',
   INVENTORY_MANAGER: 'bg-teal-100 text-teal-700',
+  PRODUCT_MANAGER: 'bg-rose-100 text-rose-700',
 };
 
 const Layout = () => {

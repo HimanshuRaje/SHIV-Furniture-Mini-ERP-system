@@ -55,6 +55,8 @@ const createProduct = async (data) => {
       name: data.name,
       sku: data.sku,
       category: data.category,
+      type: data.type || 'Standard',
+      status: data.status || 'Active',
       salesPrice: data.salesPrice,
       costPrice: data.costPrice,
       onHandQty: data.onHandQty || 0,
@@ -82,6 +84,8 @@ const updateProduct = async (id, data) => {
   if (data.name !== undefined) updateData.name = data.name;
   if (data.sku !== undefined) updateData.sku = data.sku;
   if (data.category !== undefined) updateData.category = data.category;
+  if (data.type !== undefined) updateData.type = data.type;
+  if (data.status !== undefined) updateData.status = data.status;
   if (data.salesPrice !== undefined) updateData.salesPrice = data.salesPrice;
   if (data.costPrice !== undefined) updateData.costPrice = data.costPrice;
   if (data.onHandQty !== undefined) updateData.onHandQty = data.onHandQty;

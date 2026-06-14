@@ -14,6 +14,7 @@ enum Role {
   MANUFACTURING_USER
   INVENTORY_MANAGER
   BUSINESS_OWNER
+  PRODUCT_MANAGER
 }
 
 enum ProcurementStrategy {
@@ -39,6 +40,7 @@ enum PurchaseOrderStatus {
   CONFIRMED
   PARTIALLY_RECEIVED
   FULLY_RECEIVED
+  CANCELLED
 }
 
 enum ManufacturingOrderStatus {
@@ -83,10 +85,14 @@ model User {
 }
 
 model Vendor {
-  id       Int     @id @default(autoincrement())
-  name     String
-  contact  String?
-  email    String?
+  id            Int     @id @default(autoincrement())
+  name          String
+  contact       String?
+  email         String?
+  companyRegNo  String? @map("company_reg_no")
+  gstNumber     String? @map("gst_number")
+  phone         String? @map("phone")
+  address       String? @map("address")
 
   products       Product[]
   purchaseOrders PurchaseOrder[]
@@ -99,6 +105,8 @@ model Product {
   name                String
   sku                 String              @unique
   category            String
+  type                String              @default("Standard")
+  status              String              @default("Active")
   salesPrice          Decimal             @map("sales_price") @db.Decimal(12, 2)
   costPrice           Decimal             @map("cost_price") @db.Decimal(12, 2)
   onHandQty           Int                 @default(0) @map("on_hand_qty")
@@ -122,13 +130,19 @@ model Product {
 }
 
 model SalesOrder {
-  id           Int              @id @default(autoincrement())
-  customerName String           @map("customer_name")
-  orderDate    DateTime         @default(now()) @map("order_date")
-  status       SalesOrderStatus @default(DRAFT)
-  createdById  Int              @map("created_by")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+  id              Int              @id @default(autoincrement())
+  customerName    String           @map("customer_name")
+  customerPhone   String?          @map("customer_phone")
+  customerAddress String?          @map("customer_address")
+  invoiceNo       String?          @unique @map("invoice_no")
+  orderDate       DateTime         @default(now()) @map("order_date")
+  status          SalesOrderStatus @default(DRAFT)
+  paymentMethod   String?          @default("Cash") @map("payment_method")
+  paidAmount      Decimal?         @default(0) @db.Decimal(12, 2) @map("paid_amount")
+  notes           String?
+  createdById     Int              @map("created_by")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   createdBy User             @relation(fields: [createdById], references: [id])
   lines     SalesOrderLine[]
@@ -142,6 +156,8 @@ model SalesOrderLine {
   productId    Int     @map("product_id")
   qty          Int
   unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
+  gstPercent   Decimal @default(18) @map("gst_percent") @db.Decimal(5, 2)
+  discount     Decimal @default(0) @map("discount") @db.Decimal(12, 2)
   deliveredQty Int     @default(0) @map("delivered_qty")
 
   salesOrder SalesOrder @relation(fields: [soId], references: [id], onDelete: Cascade)

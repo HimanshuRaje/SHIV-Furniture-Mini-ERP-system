@@ -12,13 +12,13 @@ router.get('/', productController.getAll);
 // GET /api/products/:id — all authenticated users
 router.get('/:id', productController.getById);
 
-// POST /api/products — ADMIN only
-router.post('/', authorize('ADMIN'), productController.create);
+// POST /api/products — ADMIN, PRODUCT_MANAGER, or PURCHASE_USER
+router.post('/', authorize('ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER'), productController.create);
 
-// PUT /api/products/:id — ADMIN only
-router.put('/:id', authorize('ADMIN'), productController.update);
+// PUT /api/products/:id — ADMIN, PRODUCT_MANAGER, or PURCHASE_USER
+router.put('/:id', authorize('ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER'), productController.update);
 
-// DELETE /api/products/:id — ADMIN only
-router.delete('/:id', authorize('ADMIN'), productController.delete);
+// DELETE /api/products/:id — ADMIN, PRODUCT_MANAGER, or PURCHASE_USER
+router.delete('/:id', authorize('ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER'), productController.delete);
 
 module.exports = router;

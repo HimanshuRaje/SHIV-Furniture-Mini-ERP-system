@@ -37,22 +37,46 @@ const getPurchaseOrderById = async (id) => {
 /**
  * Create a new purchase order with lines
  */
-const createPurchaseOrder = async ({ vendorId, lines, createdById }) => {
+const createPurchaseOrder = async ({ vendorId, lines, createdById, status }) => {
   return prisma.$transaction(async (tx) => {
     const po = await tx.purchaseOrder.create({
       data: {
         vendorId,
         createdById,
+        status: status || 'DRAFT',
         lines: {
           create: lines.map((line) => ({
             productId: line.productId,
             qty: line.qty,
             unitCost: line.unitCost,
+            receivedQty: status === 'FULLY_RECEIVED' ? line.qty : 0,
           })),
         },
       },
       include: poIncludes,
     });
+
+    if (status === 'FULLY_RECEIVED') {
+      for (const line of po.lines) {
+        // Increase on-hand stock for product
+        await tx.product.update({
+          where: { id: line.productId },
+          data: { onHandQty: { increment: line.qty } },
+        });
+
+        // Stock ledger entry
+        await tx.stockLedger.create({
+          data: {
+            productId: line.productId,
+            movementType: 'PURCHASE_RECEIPT',
+            qtyChange: line.qty,
+            reference: `PO-${po.id}`,
+            referenceType: 'PURCHASE_ORDER',
+            createdById,
+          },
+        });
+      }
+    }
 
     await tx.auditLog.create({
       data: {
@@ -60,7 +84,7 @@ const createPurchaseOrder = async ({ vendorId, lines, createdById }) => {
         action: 'CREATE',
         referenceId: po.id,
         changedById: createdById,
-        afterData: { vendorId, lines },
+        afterData: { vendorId, lines, status },
       },
     });
 
@@ -69,7 +93,7 @@ const createPurchaseOrder = async ({ vendorId, lines, createdById }) => {
 };
 
 /**
- * Update a draft purchase order
+ * Update a purchase order (with status transitions)
  */
 const updatePurchaseOrder = async (id, data) => {
   const existing = await prisma.purchaseOrder.findUnique({
@@ -78,11 +102,50 @@ const updatePurchaseOrder = async (id, data) => {
   });
 
   if (!existing) throw new Error('Purchase order not found.');
-  if (existing.status !== 'DRAFT') throw new Error('Only DRAFT orders can be updated.');
+  if (existing.status !== 'DRAFT' && data.lines) {
+    throw new Error('Only DRAFT orders can have their items modified.');
+  }
 
   return prisma.$transaction(async (tx) => {
     const updateData = {};
-    if (data.vendorId) updateData.vendorId = data.vendorId;
+    if (data.vendorId && existing.status === 'DRAFT') updateData.vendorId = data.vendorId;
+    
+    // Status update handling
+    if (data.status && data.status !== existing.status) {
+      updateData.status = data.status;
+
+      // Handle transition to FULLY_RECEIVED
+      if (data.status === 'FULLY_RECEIVED') {
+        for (const line of existing.lines) {
+          const remainingQty = line.qty - line.receivedQty;
+          if (remainingQty > 0) {
+            // Update received qty on line
+            await tx.purchaseOrderLine.update({
+              where: { id: line.id },
+              data: { receivedQty: { increment: remainingQty } },
+            });
+
+            // Increase on-hand stock for product
+            await tx.product.update({
+              where: { id: line.productId },
+              data: { onHandQty: { increment: remainingQty } },
+            });
+
+            // Stock ledger entry
+            await tx.stockLedger.create({
+              data: {
+                productId: line.productId,
+                movementType: 'PURCHASE_RECEIPT',
+                qtyChange: remainingQty,
+                reference: `PO-${id}`,
+                referenceType: 'PURCHASE_ORDER',
+                createdById: data.userId || existing.createdById,
+              },
+            });
+          }
+        }
+      }
+    }
 
     if (Object.keys(updateData).length > 0) {
       await tx.purchaseOrder.update({
@@ -91,7 +154,7 @@ const updatePurchaseOrder = async (id, data) => {
       });
     }
 
-    if (data.lines) {
+    if (data.lines && existing.status === 'DRAFT') {
       await tx.purchaseOrderLine.deleteMany({ where: { poId: id } });
       await tx.purchaseOrderLine.createMany({
         data: data.lines.map((line) => ({
@@ -144,6 +207,41 @@ const deletePurchaseOrder = async (id, userId) => {
   });
 
   return { message: 'Purchase order deleted successfully.' };
+};
+
+/**
+ * Cancel a purchase order (DRAFT or CONFIRMED)
+ */
+const cancelPurchaseOrder = async (id, userId) => {
+  const existing = await prisma.purchaseOrder.findUnique({ where: { id } });
+
+  if (!existing) throw new Error('Purchase order not found.');
+  if (!['DRAFT', 'CONFIRMED'].includes(existing.status)) {
+    throw new Error('Only DRAFT or CONFIRMED orders can be cancelled.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.purchaseOrder.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        module: 'PURCHASE',
+        action: 'CANCEL',
+        referenceId: id,
+        changedById: userId,
+        beforeData: { status: existing.status },
+        afterData: { status: 'CANCELLED' },
+      },
+    });
+  });
+
+  return prisma.purchaseOrder.findUnique({
+    where: { id },
+    include: poIncludes,
+  });
 };
 
 /**
@@ -263,6 +361,7 @@ module.exports = {
   createPurchaseOrder,
   updatePurchaseOrder,
   deletePurchaseOrder,
+  cancelPurchaseOrder,
   confirmPurchaseOrder,
   receivePurchaseOrder,
 };

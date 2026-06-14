@@ -34,7 +34,7 @@ const getById = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const { vendorId, lines } = req.body;
+    const { vendorId, lines, status } = req.body;
 
     if (!vendorId || !lines || !Array.isArray(lines) || lines.length === 0) {
       return res.status(400).json({
@@ -46,6 +46,7 @@ const create = async (req, res) => {
     const order = await purchaseService.createPurchaseOrder({
       vendorId,
       lines,
+      status,
       createdById: req.user.id,
     });
 
@@ -86,6 +87,19 @@ const deletePO = async (req, res) => {
 };
 
 /**
+ * POST /api/purchase-orders/:id/cancel
+ */
+const cancel = async (req, res) => {
+  try {
+    const order = await purchaseService.cancelPurchaseOrder(parseInt(req.params.id), req.user.id);
+    return res.json({ success: true, data: order });
+  } catch (error) {
+    console.error('Cancel purchase order error:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to cancel purchase order.' });
+  }
+};
+
+/**
  * POST /api/purchase-orders/:id/confirm
  */
 const confirm = async (req, res) => {
@@ -120,4 +134,4 @@ const receive = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, delete: deletePO, confirm, receive };
+module.exports = { getAll, getById, create, update, delete: deletePO, cancel, confirm, receive };

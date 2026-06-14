@@ -12,4 +12,6 @@ export const deletePurchaseOrder = (id) => api.delete(`/purchase-orders/${id}`);
 
 export const confirmPurchaseOrder = (id) => api.post(`/purchase-orders/${id}/confirm`);
 
+export const cancelPurchaseOrder = (id) => api.post(`/purchase-orders/${id}/cancel`);
+
 export const receivePurchaseOrder = (id, lines) => api.post(`/purchase-orders/${id}/receive`, { lines });

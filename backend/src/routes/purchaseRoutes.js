@@ -25,6 +25,9 @@ router.delete('/:id', purchaseController.delete);
 // POST /api/purchase-orders/:id/confirm
 router.post('/:id/confirm', purchaseController.confirm);
 
+// POST /api/purchase-orders/:id/cancel
+router.post('/:id/cancel', purchaseController.cancel);
+
 // POST /api/purchase-orders/:id/receive
 router.post('/:id/receive', purchaseController.receive);
 

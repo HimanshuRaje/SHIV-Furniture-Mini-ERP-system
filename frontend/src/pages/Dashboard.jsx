@@ -13,10 +13,10 @@ import {
   FiPackage,
   FiClipboard,
   FiUsers,
-  FiDollarSign,
   FiBox,
   FiTool,
   FiClock,
+  FiLayers,
 } from 'react-icons/fi';
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -43,6 +43,11 @@ const timeAgo = (dateStr) => {
 };
 
 const moduleIcons = {
+  SALES: FiShoppingCart,
+  PURCHASE: FiClipboard,
+  MANUFACTURING: FiSettings,
+  INVENTORY: FiBox,
+  PROCUREMENT: FiTruck,
   SalesOrder: FiShoppingCart,
   PurchaseOrder: FiClipboard,
   Product: FiPackage,
@@ -54,6 +59,18 @@ const moduleIcons = {
 };
 
 const getModuleIcon = (module) => moduleIcons[module] || moduleIcons.default;
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const sumLineQty = (lines = [], key = 'qty') =>
+  lines.reduce((total, line) => total + (Number(line[key]) || 0), 0);
 
 // ─── Stat Card Component ──────────────────────────────────
 
@@ -140,6 +157,32 @@ const StatusBreakdownCard = ({ title, icon: Icon, data }) => {
 
 // ─── Main Dashboard Component ─────────────────────────────
 
+const RecentRecordsCard = ({ title, icon: Icon, items, emptyText, renderItem, countLabel = 'recent' }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+      <Icon className="w-5 h-5 text-gray-400" />
+      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+      <span className="ml-auto text-xs text-gray-400 font-medium">
+        {(items || []).length} {countLabel}
+      </span>
+    </div>
+    {items?.length > 0 ? (
+      <div className="divide-y divide-gray-50">
+        {items.map((item, idx) => (
+          <div key={item.id || idx} className="px-6 py-3.5 hover:bg-gray-50/50 transition-colors">
+            {renderItem(item)}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="px-6 py-10 text-center">
+        <Icon className="w-9 h-9 mx-auto text-gray-200 mb-2" />
+        <p className="text-sm text-gray-400">{emptyText}</p>
+      </div>
+    )}
+  </div>
+);
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -196,12 +239,27 @@ const Dashboard = () => {
   const {
     totalSalesOrders = 0,
     pendingDeliveries = 0,
+    totalPurchaseOrders = 0,
+    pendingReceipts = 0,
     activeManufacturing = 0,
     lowStockCount = 0,
+    totalProducts = 0,
+    totalVendors = 0,
+    totalUsers = 0,
+    totalBoms = 0,
     salesByStatus = {},
     purchaseByStatus = {},
+    manufacturingByStatus = {},
     lowStockItems = [],
     recentActivity = [],
+    recentSalesOrders = [],
+    recentPurchaseOrders = [],
+    recentManufacturingOrders = [],
+    recentStockMovements = [],
+    products = [],
+    vendors = [],
+    users = [],
+    boms = [],
   } = data;
 
   const greeting = () => {
@@ -262,7 +320,36 @@ const Dashboard = () => {
       </div>
 
       {/* ─── Status Breakdowns ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          title="Purchase Orders"
+          value={totalPurchaseOrders}
+          icon={FiClipboard}
+          color="blue"
+          subtitle={`${formatNumber(pendingReceipts)} pending receipts`}
+        />
+        <StatCard
+          title="Products"
+          value={totalProducts}
+          icon={FiPackage}
+          color="indigo"
+        />
+        <StatCard
+          title="Vendors"
+          value={totalVendors}
+          icon={FiUsers}
+          color="amber"
+        />
+        <StatCard
+          title="BOMs"
+          value={totalBoms}
+          icon={FiLayers}
+          color="red"
+          subtitle={`${formatNumber(totalUsers)} users`}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <StatusBreakdownCard
           title="Sales Orders by Status"
           icon={FiShoppingCart}
@@ -273,9 +360,90 @@ const Dashboard = () => {
           icon={FiClipboard}
           data={purchaseByStatus}
         />
+        <StatusBreakdownCard
+          title="Manufacturing by Status"
+          icon={FiSettings}
+          data={manufacturingByStatus}
+        />
       </div>
 
       {/* ─── Low Stock Alerts ─── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <RecentRecordsCard
+          title="All Sales Orders"
+          icon={FiShoppingCart}
+          items={recentSalesOrders}
+          emptyText="No sales orders found"
+          countLabel="total"
+          renderItem={(order) => {
+            const orderedQty = sumLineQty(order.lines);
+            const deliveredQty = sumLineQty(order.lines, 'deliveredQty');
+            return (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {order.invoiceNo || `SO-${order.id}`}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{order.customerName}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {deliveredQty}/{orderedQty} delivered - {formatDate(order.orderDate)}
+                  </p>
+                </div>
+                <StatusBadge status={order.status} />
+              </div>
+            );
+          }}
+        />
+        <RecentRecordsCard
+          title="All Purchase Orders"
+          icon={FiClipboard}
+          items={recentPurchaseOrders}
+          emptyText="No purchase orders found"
+          countLabel="total"
+          renderItem={(order) => {
+            const orderedQty = sumLineQty(order.lines);
+            const receivedQty = sumLineQty(order.lines, 'receivedQty');
+            return (
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">PO-{order.id}</p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {order.vendor?.name || 'Unknown vendor'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {receivedQty}/{orderedQty} received - {formatDate(order.orderDate)}
+                  </p>
+                </div>
+                <StatusBadge status={order.status} />
+              </div>
+            );
+          }}
+        />
+        <RecentRecordsCard
+          title="All Manufacturing"
+          icon={FiSettings}
+          items={recentManufacturingOrders}
+          emptyText="No manufacturing orders found"
+          countLabel="total"
+          renderItem={(order) => (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  MO-{order.id} - {order.product?.name || 'Unknown product'}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {order.product?.sku || '-'} - Qty {formatNumber(order.qty)}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {order.assignedTo?.name || 'Unassigned'} - {formatDate(order.createdAt)}
+                </p>
+              </div>
+              <StatusBadge status={order.status} />
+            </div>
+          )}
+        />
+      </div>
+
       {lowStockItems.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
@@ -301,6 +469,9 @@ const Dashboard = () => {
                   <th className="px-6 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider text-right">
                     Reorder Point
                   </th>
+                  <th className="px-6 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">
+                    Vendor
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -323,6 +494,9 @@ const Dashboard = () => {
                       <td className="px-6 py-3 text-right text-gray-500">
                         {formatNumber(item.reorderPoint ?? 0)}
                       </td>
+                      <td className="px-6 py-3 text-gray-500">
+                        {item.vendor?.name || '-'}
+                      </td>
                     </tr>
                   );
                 })}
@@ -333,6 +507,105 @@ const Dashboard = () => {
       )}
 
       {/* ─── Recent Activity Feed ─── */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <RecentRecordsCard
+          title="Products"
+          icon={FiPackage}
+          items={products}
+          emptyText="No products found"
+          countLabel="total"
+          renderItem={(product) => (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{product.name}</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {product.sku} - {product.category || 'Uncategorized'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Stock {formatNumber(product.onHandQty)} - Reserved {formatNumber(product.reservedQty)}
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-gray-500">{product.status || 'Active'}</span>
+            </div>
+          )}
+        />
+        <RecentRecordsCard
+          title="Vendors"
+          icon={FiUsers}
+          items={vendors}
+          emptyText="No vendors found"
+          countLabel="total"
+          renderItem={(vendor) => (
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{vendor.name}</p>
+              <p className="text-xs text-gray-500 truncate">
+                {vendor.email || vendor.phone || vendor.contact || 'No contact'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {formatNumber(vendor._count?.products)} products - {formatNumber(vendor._count?.purchaseOrders)} purchase orders
+              </p>
+            </div>
+          )}
+        />
+        <RecentRecordsCard
+          title="Users"
+          icon={FiUsers}
+          items={users}
+          emptyText="No users found"
+          countLabel="total"
+          renderItem={(appUser) => (
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{appUser.name}</p>
+              <p className="text-xs text-gray-500 truncate">{appUser.email}</p>
+              <p className="text-xs text-gray-400 mt-1">{appUser.role?.replace(/_/g, ' ')}</p>
+            </div>
+          )}
+        />
+        <RecentRecordsCard
+          title="BOMs"
+          icon={FiLayers}
+          items={boms}
+          emptyText="No BOMs found"
+          countLabel="total"
+          renderItem={(bom) => (
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                BOM-{bom.id} - {bom.product?.name || 'Unknown product'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">{bom.product?.sku || '-'}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {formatNumber(bom._count?.components)} components - {formatNumber(bom._count?.operations)} operations
+              </p>
+            </div>
+          )}
+        />
+      </div>
+
+      <RecentRecordsCard
+        title="Recent Stock Movements"
+        icon={FiBox}
+        items={recentStockMovements}
+        emptyText="No stock movements found"
+        renderItem={(movement) => (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {movement.product?.name || 'Unknown product'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {movement.movementType?.replace(/_/g, ' ')} - {movement.reference || 'No reference'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {movement.createdBy?.name || 'System'} - {timeAgo(movement.createdAt)}
+              </p>
+            </div>
+            <span className={`text-sm font-semibold ${movement.qtyChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {movement.qtyChange >= 0 ? '+' : ''}{formatNumber(movement.qtyChange)}
+            </span>
+          </div>
+        )}
+      />
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
           <FiClock className="w-5 h-5 text-gray-400" />
@@ -357,9 +630,9 @@ const Dashboard = () => {
                       <span className="text-gray-500">
                         {log.action?.toLowerCase().replace(/_/g, ' ')}
                       </span>
-                      {log.documentId && (
+                      {(log.referenceId || log.documentId) && (
                         <span className="text-gray-400 ml-1 font-mono text-xs">
-                          #{typeof log.documentId === 'string' ? log.documentId.slice(-6) : log.documentId}
+                          #{log.referenceId || (typeof log.documentId === 'string' ? log.documentId.slice(-6) : log.documentId)}
                         </span>
                       )}
                     </p>

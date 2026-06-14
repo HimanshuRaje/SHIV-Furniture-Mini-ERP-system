@@ -13,6 +13,7 @@ import {
   FiClipboard,
   FiChevronLeft,
   FiChevronRight,
+  FiClock,
 } from 'react-icons/fi';
 
 const navItems = [
@@ -26,7 +27,7 @@ const navItems = [
     label: 'Products',
     path: '/products',
     icon: FiPackage,
-    roles: null, // all roles
+    roles: ['ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER', 'SALES_USER'],
   },
   {
     label: 'Sales Orders',
@@ -53,15 +54,21 @@ const navItems = [
     roles: ['ADMIN', 'MANUFACTURING_USER', 'BUSINESS_OWNER'],
   },
   {
-    label: 'Inventory',
-    path: '/inventory',
-    icon: FiBox,
-    roles: ['ADMIN', 'INVENTORY_MANAGER', 'BUSINESS_OWNER'],
-  },
-  {
     label: 'Vendors',
     path: '/vendors',
     icon: FiUsers,
+    roles: ['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER'],
+  },
+  {
+    label: 'Vendor History',
+    path: '/vendor-history',
+    icon: FiClock,
+    roles: ['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER'],
+  },
+  {
+    label: 'Inventory',
+    path: '/purchase-inventory',
+    icon: FiBox,
     roles: ['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER'],
   },
   {

@@ -31,6 +31,9 @@ router.post('/:id/start', manufacturingController.start);
 // POST /api/manufacturing-orders/:id/complete
 router.post('/:id/complete', manufacturingController.complete);
 
+// POST /api/manufacturing-orders/:id/cancel
+router.post('/:id/cancel', manufacturingController.cancel);
+
 // PUT /api/manufacturing-orders/work-orders/:woId
 router.put('/work-orders/:woId', manufacturingController.updateWorkOrder);
 

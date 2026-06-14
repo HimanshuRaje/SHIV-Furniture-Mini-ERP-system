@@ -13,12 +13,13 @@ const inventoryRoutes = require('./routes/inventoryRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
+const userRoutes   = require('./routes/userRoutes');
 
 const app = express();
 
 // ─── MIDDLEWARE ───
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173'],
   credentials: true,
 }));
 app.use(express.json());
@@ -34,6 +35,7 @@ app.use('/api/stock-ledger', inventoryRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/vendors', vendorRoutes);
+app.use('/api/users',   userRoutes);
 
 // ─── HEALTH CHECK ───
 app.get('/api/health', (req, res) => {

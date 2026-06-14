@@ -15,7 +15,12 @@ const statusConfig = {
 
 const StatusBadge = ({ status }) => {
   const config = statusConfig[status] || statusConfig.DRAFT;
-  const label = status?.replace(/_/g, ' ') || 'UNKNOWN';
+  let label = status?.replace(/_/g, ' ') || 'UNKNOWN';
+  if (status === 'CONFIRMED') {
+    label = 'PENDING';
+  } else if (status === 'FULLY_RECEIVED') {
+    label = 'RECEIVED';
+  }
 
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${config.bg} ${config.text}`}>

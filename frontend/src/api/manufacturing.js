@@ -16,4 +16,6 @@ export const startMO = (id) => api.post(`/manufacturing-orders/${id}/start`);
 
 export const completeMO = (id) => api.post(`/manufacturing-orders/${id}/complete`);
 
+export const cancelMO = (id) => api.post(`/manufacturing-orders/${id}/cancel`);
+
 export const updateWorkOrder = (woId, data) => api.put(`/manufacturing-orders/work-orders/${woId}`, data);

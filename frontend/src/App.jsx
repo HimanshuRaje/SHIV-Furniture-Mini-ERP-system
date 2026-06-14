@@ -1,12 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import AddProduct from './pages/AddProduct';
 import SalesOrders from './pages/SalesOrders';
 import PurchaseOrders from './pages/PurchaseOrders';
 import BillOfMaterials from './pages/BillOfMaterials';
@@ -14,6 +15,24 @@ import ManufacturingOrders from './pages/ManufacturingOrders';
 import StockLedger from './pages/StockLedger';
 import AuditLogs from './pages/AuditLogs';
 import Vendors from './pages/Vendors';
+import VendorHistory from './pages/VendorHistory';
+import PurchaseInventory from './pages/PurchaseInventory';
+
+// Smart default redirect based on role
+const DefaultRedirect = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+
+  const roleHome = {
+    SALES_USER: '/sales-orders',
+    PURCHASE_USER: '/purchase-orders',
+    MANUFACTURING_USER: '/manufacturing',
+    INVENTORY_MANAGER: '/inventory',
+    PRODUCT_MANAGER: '/products',
+  };
+
+  return <Navigate to={roleHome[user.role] || '/dashboard'} replace />;
+};
 
 const App = () => {
   return (
@@ -55,12 +74,32 @@ const App = () => {
               }
             />
 
-            {/* Products — all roles */}
+            {/* Products — admin, product manager, purchase user, and sales user */}
             <Route
               path="/products"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={['ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER', 'SALES_USER']}>
                   <Products />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Add Product — admin, product manager, and purchase user */}
+            <Route
+              path="/products/new"
+              element={
+                <ProtectedRoute roles={['ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER']}>
+                  <AddProduct />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Edit Product — admin, product manager, and purchase user */}
+            <Route
+              path="/products/edit/:id"
+              element={
+                <ProtectedRoute roles={['ADMIN', 'PRODUCT_MANAGER', 'PURCHASE_USER']}>
+                  <AddProduct />
                 </ProtectedRoute>
               }
             />
@@ -125,6 +164,34 @@ const App = () => {
               }
             />
 
+            {/* Vendor History */}
+            <Route
+              path="/vendor-history"
+              element={
+                <ProtectedRoute roles={['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER']}>
+                  <VendorHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vendor-history/:id"
+              element={
+                <ProtectedRoute roles={['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER']}>
+                  <VendorHistory />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Purchase Inventory */}
+            <Route
+              path="/purchase-inventory"
+              element={
+                <ProtectedRoute roles={['ADMIN', 'PURCHASE_USER', 'BUSINESS_OWNER']}>
+                  <PurchaseInventory />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Audit Logs — admin only */}
             <Route
               path="/audit-logs"
@@ -135,9 +202,9 @@ const App = () => {
               }
             />
 
-            {/* Default & catch-all */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* Default & catch-all — role-aware redirect */}
+            <Route index element={<DefaultRedirect />} />
+            <Route path="*" element={<DefaultRedirect />} />
           </Route>
         </Routes>
       </BrowserRouter>

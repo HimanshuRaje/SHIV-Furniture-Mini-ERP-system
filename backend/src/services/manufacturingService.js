@@ -46,49 +46,58 @@ const getManufacturingOrderById = async (id) => {
  * Create a new manufacturing order with auto-created work orders
  */
 const createManufacturingOrder = async ({ productId, qty, bomId, assignedToId, createdById }) => {
-  return prisma.$transaction(async (tx) => {
-    // Fetch BoM with operations
-    const bom = await tx.bom.findUnique({
-      where: { id: bomId },
-      include: { operations: true },
+  // Step 1: Fetch BoM (read — no transaction)
+  const bom = await prisma.bom.findUnique({
+    where: { id: bomId },
+    include: { operations: true },
+  });
+
+  if (!bom) throw new Error('BoM not found.');
+
+  // Step 2: Create the MO without nested relations (single round-trip)
+  const mo = await prisma.manufacturingOrder.create({
+    data: {
+      productId,
+      qty,
+      bomId,
+      status: 'DRAFT',
+      assignedToId: assignedToId || null,
+      createdById,
+    },
+  });
+
+  // Step 3: Create work orders individually (each is its own round-trip)
+  if (bom.operations.length > 0) {
+    await prisma.workOrder.createMany({
+      data: bom.operations.map((op) => ({
+        moId: mo.id,
+        operationName: op.name,
+        workCenter: op.workCenter,
+        durationMins: op.durationMins,
+        status: 'PENDING',
+      })),
     });
+  }
 
-    if (!bom) throw new Error('BoM not found.');
+  // Step 4: Audit log (single round-trip)
+  await prisma.auditLog.create({
+    data: {
+      module: 'MANUFACTURING',
+      action: 'CREATE',
+      referenceId: mo.id,
+      changedById: createdById,
+      afterData: { productId, qty, bomId, assignedToId },
+    },
+  });
 
-    // Create MO
-    const mo = await tx.manufacturingOrder.create({
-      data: {
-        productId,
-        qty,
-        bomId,
-        status: 'DRAFT',
-        assignedToId: assignedToId || null,
-        createdById,
-        workOrders: {
-          create: bom.operations.map((op) => ({
-            operationName: op.name,
-            workCenter: op.workCenter,
-            durationMins: op.durationMins,
-            status: 'PENDING',
-          })),
-        },
-      },
-      include: moIncludes,
-    });
-
-    await tx.auditLog.create({
-      data: {
-        module: 'MANUFACTURING',
-        action: 'CREATE',
-        referenceId: mo.id,
-        changedById: createdById,
-        afterData: { productId, qty, bomId, assignedToId },
-      },
-    });
-
-    return mo;
+  // Step 5: Fetch and return the full MO with all relations
+  return prisma.manufacturingOrder.findUnique({
+    where: { id: mo.id },
+    include: moIncludes,
   });
 };
+
+
 
 /**
  * Update a draft manufacturing order
@@ -246,6 +255,67 @@ const confirmManufacturingOrder = async (id, userId) => {
 };
 
 /**
+ * Cancel a manufacturing order — unreserves any reserved component stock
+ */
+const cancelManufacturingOrder = async (id, userId) => {
+  const mo = await prisma.manufacturingOrder.findUnique({
+    where: { id },
+    include: {
+      bom: {
+        include: {
+          components: {
+            include: { componentProduct: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!mo) throw new Error('Manufacturing order not found.');
+  if (!['DRAFT', 'CONFIRMED'].includes(mo.status)) {
+    throw new Error('Only DRAFT or CONFIRMED orders can be cancelled.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // If CONFIRMED, unreserve the component quantities that were reserved
+    if (mo.status === 'CONFIRMED') {
+      for (const component of mo.bom.components) {
+        const neededQty = component.qty * mo.qty;
+        const product = await tx.product.findUnique({ where: { id: component.componentProductId } });
+        const releaseQty = Math.min(product.reservedQty, neededQty);
+        if (releaseQty > 0) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { reservedQty: { decrement: releaseQty } },
+          });
+        }
+      }
+    }
+
+    await tx.manufacturingOrder.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        module: 'MANUFACTURING',
+        action: 'CANCEL',
+        referenceId: id,
+        changedById: userId,
+        beforeData: { status: mo.status },
+        afterData: { status: 'CANCELLED' },
+      },
+    });
+  });
+
+  return prisma.manufacturingOrder.findUnique({
+    where: { id },
+    include: moIncludes,
+  });
+};
+
+/**
  * Start a manufacturing order
  */
 const startManufacturingOrder = async (id, userId) => {
@@ -387,6 +457,7 @@ module.exports = {
   updateManufacturingOrder,
   deleteManufacturingOrder,
   confirmManufacturingOrder,
+  cancelManufacturingOrder,
   startManufacturingOrder,
   completeManufacturingOrder,
   updateWorkOrder,

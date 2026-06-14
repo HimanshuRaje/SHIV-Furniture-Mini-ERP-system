@@ -34,7 +34,7 @@ const getById = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const { customerName, lines } = req.body;
+    const { customerName, customerPhone, customerAddress, paymentMethod, paidAmount, notes, lines } = req.body;
 
     if (!customerName || !lines || !Array.isArray(lines) || lines.length === 0) {
       return res.status(400).json({
@@ -45,6 +45,11 @@ const create = async (req, res) => {
 
     const order = await salesService.createSalesOrder({
       customerName,
+      customerPhone,
+      customerAddress,
+      paymentMethod,
+      paidAmount,
+      notes,
       lines,
       createdById: req.user.id,
     });

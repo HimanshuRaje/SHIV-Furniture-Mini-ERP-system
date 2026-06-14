@@ -50,9 +50,21 @@ async function main() {
     where: { email: 'mfg@shiverp.com' },
     update: {},
     create: {
-      name: 'Manufacturing User',
+      name: 'Arjun Mehta',
       email: 'mfg@shiverp.com',
       passwordHash: mfgHash,
+      role: 'MANUFACTURING_USER',
+    },
+  });
+
+  const mfgHash2 = await bcrypt.hash('mfg456', 10);
+  const mfgUser2 = await prisma.user.upsert({
+    where: { email: 'mfg2@shiverp.com' },
+    update: {},
+    create: {
+      name: 'Ravi Sharma',
+      email: 'mfg2@shiverp.com',
+      passwordHash: mfgHash2,
       role: 'MANUFACTURING_USER',
     },
   });
@@ -65,6 +77,18 @@ async function main() {
       email: 'owner@shiverp.com',
       passwordHash: ownerHash,
       role: 'BUSINESS_OWNER',
+    },
+  });
+
+  const prodHash = await bcrypt.hash('prod123', 10);
+  const prodUser = await prisma.user.upsert({
+    where: { email: 'prodmanager@shiverp.com' },
+    update: {},
+    create: {
+      name: 'Product Manager',
+      email: 'prodmanager@shiverp.com',
+      passwordHash: prodHash,
+      role: 'PRODUCT_MANAGER',
     },
   });
 

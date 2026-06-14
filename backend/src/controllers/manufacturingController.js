@@ -88,6 +88,19 @@ const confirm = async (req, res) => {
 };
 
 /**
+ * POST /api/manufacturing-orders/:id/cancel
+ */
+const cancel = async (req, res) => {
+  try {
+    const result = await manufacturingService.cancelManufacturingOrder(parseInt(req.params.id), req.user.id);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Cancel manufacturing order error:', error);
+    return res.status(400).json({ success: false, error: error.message || 'Failed to cancel manufacturing order.' });
+  }
+};
+
+/**
  * POST /api/manufacturing-orders/:id/start
  */
 const start = async (req, res) => {
@@ -129,4 +142,4 @@ const updateWorkOrder = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, delete: deleteMO, confirm, start, complete, updateWorkOrder };
+module.exports = { getAll, getById, create, update, delete: deleteMO, confirm, cancel, start, complete, updateWorkOrder };
